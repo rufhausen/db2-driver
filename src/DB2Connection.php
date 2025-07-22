@@ -90,7 +90,7 @@ class DB2Connection extends Connection
             $defaultGrammar->setOffsetCompatibilityMode($this->config['offset_compatibility_mode']);
         }
 
-        return $this->withTablePrefix($defaultGrammar);
+        return $defaultGrammar;
     }
 
     /**
@@ -98,7 +98,7 @@ class DB2Connection extends Connection
      */
     protected function getDefaultSchemaGrammar(): \Illuminate\Database\Grammar
     {
-        return new DB2SchemaGrammar;
+        return new DB2SchemaGrammar($this);
     }
 
     /**
