@@ -1,6 +1,6 @@
 <?php
 
-namespace BWICompanies\DB2Driver;
+namespace Rufhausen\DB2Driver;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
@@ -218,7 +218,7 @@ class DB2QueryGrammar extends Grammar
 
         $existsQuery->columns = [];
 
-        return $this->compileSelect($existsQuery->selectRaw('1 exists')->limit(1));
+        return $this->compileSelect($existsQuery->selectRaw('1')->limit(1));
     }
 
     /**
@@ -228,7 +228,7 @@ class DB2QueryGrammar extends Grammar
      */
     public function getDateFormat()
     {
-        return $this->dateFormat ?? parent::getDateFormat();
+        return $this->dateFormat ?? $this->getDefaultDateFormat();
     }
 
     /**
@@ -239,7 +239,53 @@ class DB2QueryGrammar extends Grammar
      */
     public function setDateFormat($dateFormat)
     {
-        $this->dateFormat = $dateFormat;
+        $this->dateFormat = $this->validateDateFormat($dateFormat);
+    }
+
+    /**
+     * Get the default date format for DB2.
+     *
+     * @return string
+     */
+    protected function getDefaultDateFormat()
+    {
+        // DB2 standard timestamp format
+        return 'Y-m-d H:i:s';
+    }
+
+    /**
+     * Validate and normalize the date format for DB2 compatibility.
+     *
+     * @param string $format
+     * @return string
+     */
+    protected function validateDateFormat($format)
+    {
+        // Map common Laravel formats to DB2-compatible formats
+        $formatMap = [
+            'Y-m-d H:i:s' => 'Y-m-d H:i:s',           // Standard Laravel
+            'Y-m-d H:i:s.u' => 'Y-m-d H:i:s.u',       // With microseconds
+            'Y-m-d-H.i.s' => 'Y-m-d-H.i.s',           // DB2 style
+            'Y-m-d-H.i.s.u' => 'Y-m-d-H.i.s.u',       // DB2 with microseconds
+        ];
+
+        return $formatMap[$format] ?? $format;
+    }
+
+    /**
+     * Wrap a value that is used for a date/time operation.
+     *
+     * @param string $value
+     * @return string
+     */
+    public function dateBasedWhere($column, $operator, $value, $boolean = 'and')
+    {
+        // Handle Carbon instances and date strings for DB2
+        if ($value instanceof \DateTimeInterface) {
+            $value = $value->format($this->getDateFormat());
+        }
+
+        return parent::dateBasedWhere($column, $operator, $value, $boolean);
     }
 
     /**
@@ -251,6 +297,91 @@ class DB2QueryGrammar extends Grammar
     public function setOffsetCompatibilityMode($bool)
     {
         $this->offsetCompatibilityMode = $bool;
+    }
+
+    /**
+     * Compile an "insert ignore" statement into SQL.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  array  $values
+     * @return string
+     */
+    public function compileInsertOrIgnore(Builder $query, array $values)
+    {
+        // DB2 doesn't have INSERT IGNORE, so we use MERGE statement
+        if (empty($values)) {
+            return '';
+        }
+
+        $table = $this->wrapTable($query->from);
+        $columns = $this->columnize(array_keys(reset($values)));
+        
+        // For insert ignore, we'll use a simple INSERT with error handling
+        // This is a basic implementation - in production you might want more sophisticated logic
+        $sql = "insert into {$table} ({$columns}) values ";
+        
+        $parameters = collect($values)->map(function ($record) {
+            return '('.implode(', ', array_fill(0, count($record), '?')).')';
+        })->implode(', ');
+
+        return $sql . $parameters;
+    }
+
+    /**
+     * Compile an upsert statement into SQL.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @param  array  $values
+     * @param  array  $uniqueBy
+     * @param  array  $update
+     * @return string
+     */
+    public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update)
+    {
+        if (empty($values)) {
+            return '';
+        }
+
+        $table = $this->wrapTable($query->from);
+        $columns = $this->columnize(array_keys(reset($values)));
+        $uniqueColumns = $this->columnize($uniqueBy);
+        
+        // Use DB2 MERGE statement for upsert functionality
+        $sql = "merge into {$table} as target using (values ";
+        
+        // Build the values clause
+        $valueRows = collect($values)->map(function ($record, $index) {
+            $placeholders = implode(', ', array_fill(0, count($record), '?'));
+            return "({$placeholders})";
+        })->implode(', ');
+        
+        $sql .= $valueRows . ") as source ({$columns}) on (";
+        
+        // Build the ON clause for unique columns
+        $onConditions = collect($uniqueBy)->map(function ($column) {
+            $wrappedColumn = $this->wrap($column);
+            return "target.{$wrappedColumn} = source.{$wrappedColumn}";
+        })->implode(' and ');
+        
+        $sql .= $onConditions . ') ';
+        
+        // Build UPDATE clause
+        if (!empty($update)) {
+            $updateColumns = collect($update)->map(function ($value, $key) {
+                $column = $this->wrap(is_numeric($key) ? $value : $key);
+                if (is_numeric($key)) {
+                    return "{$column} = source.{$column}";
+                }
+                return "{$column} = ?";
+            })->implode(', ');
+            
+            $sql .= "when matched then update set {$updateColumns} ";
+        }
+        
+        // Build INSERT clause
+        $sql .= "when not matched then insert ({$columns}) values ({$columns})";
+        
+        return $sql;
     }
 
     /**

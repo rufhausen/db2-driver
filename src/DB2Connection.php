@@ -1,9 +1,9 @@
 <?php
 
-namespace BWICompanies\DB2Driver;
+namespace Rufhausen\DB2Driver;
 
-use BWICompanies\DB2Driver\Schema\DB2Builder;
-use BWICompanies\DB2Driver\Schema\DB2SchemaGrammar;
+use Rufhausen\DB2Driver\Schema\DB2Builder;
+use Rufhausen\DB2Driver\Schema\DB2SchemaGrammar;
 use Illuminate\Database\Connection;
 use PDO;
 
@@ -26,13 +26,13 @@ class DB2Connection extends Connection
         array $config = []
         ) {
         parent::__construct($pdo, $database, $tablePrefix, $config);
-        $this->currentSchema = $this->defaultSchema = strtoupper($config['schema'] ?? null);
+        $this->currentSchema = $this->defaultSchema = isset($config['schema']) ? strtoupper($config['schema']) : null;
     }
 
     /**
      * Get the name of the default schema.
      */
-    public function getDefaultSchema(): string
+    public function getDefaultSchema(): ?string
     {
         return $this->defaultSchema;
     }

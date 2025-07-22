@@ -1,6 +1,6 @@
 <?php
 
-namespace BWICompanies\DB2Driver\Schema;
+namespace Rufhausen\DB2Driver\Schema;
 
 use Closure;
 use Illuminate\Database\Schema\Blueprint;
@@ -13,7 +13,6 @@ class DB2Builder extends Builder
      */
     public function hasTable($table): bool
     {
-        $sql = $this->grammar->compileTableExists();
         $schemaTable = explode('.', $table);
 
         if (count($schemaTable) > 1) {
@@ -23,6 +22,8 @@ class DB2Builder extends Builder
             $schema = $this->connection->getDefaultSchema();
             $table = $this->connection->getTablePrefix().$table;
         }
+
+        $sql = $this->grammar->compileTableExists($schema, $table);
 
         return count($this->connection->select($sql, [
             $schema,
@@ -35,7 +36,6 @@ class DB2Builder extends Builder
      */
     public function getColumnListing($table): array
     {
-        $sql = $this->grammar->compileColumnExists();
         $database = $this->connection->getDatabaseName();
         $table = $this->connection->getTablePrefix().$table;
 
@@ -45,6 +45,8 @@ class DB2Builder extends Builder
             $database = $tableExploded[0];
             $table = $tableExploded[1];
         }
+
+        $sql = $this->grammar->compileColumns($database, $table);
 
         $results = $this->connection->select($sql, [
             $database,
@@ -77,7 +79,7 @@ class DB2Builder extends Builder
     /**
      * Create a new command set with a Closure.
      */
-    protected function createBlueprint($table, Closure $callback = null)
+    protected function createBlueprint($table, ?Closure $callback = null)
     {
         if (isset($this->resolver)) {
             return call_user_func($this->resolver, $table, $callback);
