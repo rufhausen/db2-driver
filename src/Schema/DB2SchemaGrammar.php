@@ -1,6 +1,6 @@
 <?php
 
-namespace BWICompanies\DB2Driver\Schema;
+namespace Rufhausen\DB2Driver\Schema;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Expression;
