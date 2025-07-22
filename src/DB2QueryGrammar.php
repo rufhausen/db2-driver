@@ -2,11 +2,25 @@
 
 namespace BWICompanies\DB2Driver;
 
+use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
 
 class DB2QueryGrammar extends Grammar
 {
+    /**
+     * The connection instance.
+     */
+    protected $connection;
+
+    /**
+     * Create a new query grammar instance.
+     */
+    public function __construct(?Connection $connection = null)
+    {
+        $this->connection = $connection;
+    }
+
     /**
      * The format for database stored dates.
      *
@@ -105,7 +119,7 @@ class DB2QueryGrammar extends Grammar
 
         $columns = (! empty($components['columns']) ? $components['columns'].', ' : 'select');
 
-        if ($columns == 'select *, ' && $query->from) {
+        if ($columns == 'select *, ' && $query->from && is_string($query->from)) {
             $columns = 'select '.$this->tablePrefix.$query->from.'.*, ';
         }
 
@@ -139,7 +153,7 @@ class DB2QueryGrammar extends Grammar
      * Compile the over statement for a table expression.
      *
      * @param  string  $orderings
-     * @param    $columns
+     * @param  string  $columns
      * @return string
      */
     protected function compileOver($orderings, $columns)
@@ -148,7 +162,7 @@ class DB2QueryGrammar extends Grammar
     }
 
     /**
-     * @param $query
+     * @param \Illuminate\Database\Query\Builder $query
      * @return string
      */
     protected function compileRowConstraint($query)
@@ -220,7 +234,8 @@ class DB2QueryGrammar extends Grammar
     /**
      * Set the format for database stored dates.
      *
-     * @param $dateFormat
+     * @param string $dateFormat
+     * @return void
      */
     public function setDateFormat($dateFormat)
     {
@@ -230,7 +245,8 @@ class DB2QueryGrammar extends Grammar
     /**
      * Set offset compatibility mode to trigger FETCH FIRST X ROWS and ROW_NUM behavior for older versions of DB2
      *
-     * @param $bool
+     * @param bool $bool
+     * @return void
      */
     public function setOffsetCompatibilityMode($bool)
     {

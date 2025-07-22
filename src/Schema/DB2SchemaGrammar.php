@@ -11,6 +11,18 @@ use Illuminate\Support\Fluent;
 class DB2SchemaGrammar extends Grammar
 {
     /**
+     * The connection instance.
+     */
+    protected $connection;
+
+    /**
+     * Create a new schema grammar instance.
+     */
+    public function __construct(?Connection $connection = null)
+    {
+        $this->connection = $connection;
+    }
+    /**
      * The possible column modifiers.
      *
      * @var array
