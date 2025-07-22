@@ -68,9 +68,11 @@ class DB2SchemaGrammar extends Grammar
     /**
      * Compile the query to determine the list of tables.
      *
+     * @param  string  $schema
+     * @param  string  $table
      * @return string
      */
-    public function compileTableExists()
+    public function compileTableExists($schema, $table)
     {
         return 'select * from information_schema.tables where table_schema = upper(?) and table_name = upper(?)';
     }
@@ -78,9 +80,11 @@ class DB2SchemaGrammar extends Grammar
     /**
      * Compile the query to determine the list of columns.
      *
+     * @param  string  $schema
+     * @param  string  $table
      * @return string
      */
-    public function compileColumnExists()
+    public function compileColumns($schema, $table)
     {
         return 'select column_name from information_schema.columns where table_schema = upper(?) and table_name = upper(?)';
     }
@@ -883,5 +887,133 @@ EOT;
         $command->command = 'CHGJOB INQMSGRPY(*SYSRPYL)';
 
         return $this->compileExecuteCommand($blueprint, $command);
+    }
+
+    /**
+     * Compile the query to determine the tables.
+     *
+     * @param  string  $schema
+     * @return string
+     */
+    public function compileTables($schema)
+    {
+        return 'select table_name from information_schema.tables where table_schema = upper(?) order by table_name';
+    }
+
+    /**
+     * Compile the query to determine the views.
+     *
+     * @param  string  $schema
+     * @return string
+     */
+    public function compileViews($schema)
+    {
+        return 'select table_name from information_schema.views where table_schema = upper(?) order by table_name';
+    }
+
+    /**
+     * Compile the query to determine the types.
+     *
+     * @param  string  $schema
+     * @return string
+     */
+    public function compileTypes($schema)
+    {
+        return 'select distinct data_type from information_schema.columns where table_schema = upper(?) order by data_type';
+    }
+
+    /**
+     * Compile the query to determine the indexes.
+     *
+     * @param  string  $schema
+     * @param  string  $table
+     * @return string
+     */
+    public function compileIndexes($schema, $table)
+    {
+        return 'select index_name, non_unique, column_name from information_schema.statistics where table_schema = upper(?) and table_name = upper(?) order by index_name, seq_in_index';
+    }
+
+    /**
+     * Compile the query to determine the foreign keys.
+     *
+     * @param  string  $schema
+     * @param  string  $table
+     * @return string
+     */
+    public function compileForeignKeys($schema, $table)
+    {
+        return 'select constraint_name, column_name, referenced_table_name, referenced_column_name from information_schema.key_column_usage where table_schema = upper(?) and table_name = upper(?) and referenced_table_name is not null';
+    }
+
+    /**
+     * Compile a change column command.
+     *
+     * @param  \Illuminate\Database\Schema\Blueprint  $blueprint
+     * @param  \Illuminate\Support\Fluent  $command
+     * @return string
+     */
+    public function compileChange(Blueprint $blueprint, Fluent $command)
+    {
+        $table = $this->wrapTable($blueprint);
+        $columns = [];
+
+        foreach ($command->columns as $column) {
+            $sql = $this->wrap($column->name).' '.$this->getType($column);
+            $columns[] = $this->addModifiers($sql, $blueprint, $column);
+        }
+
+        return 'alter table '.$table.' '.implode(', ', $columns);
+    }
+
+    /**
+     * Compile a fulltext index key command.
+     *
+     * @param  \Illuminate\Database\Schema\Blueprint  $blueprint
+     * @param  \Illuminate\Support\Fluent  $command
+     * @return string
+     */
+    public function compileFulltext(Blueprint $blueprint, Fluent $command)
+    {
+        $table = $this->wrapTable($blueprint);
+        $columns = $this->columnize($command->columns);
+
+        return "create fulltext index {$command->index} on {$table}($columns)";
+    }
+
+    /**
+     * Compile a drop fulltext index command.
+     *
+     * @param  \Illuminate\Database\Schema\Blueprint  $blueprint
+     * @param  \Illuminate\Support\Fluent  $command
+     * @return string
+     */
+    public function compileDropFullText(Blueprint $blueprint, Fluent $command)
+    {
+        $table = $this->wrapTable($blueprint);
+
+        return "alter table {$table} drop index {$command->index}";
+    }
+
+    /**
+     * Create the column definition for a computed type.
+     *
+     * @param  \Illuminate\Support\Fluent  $column
+     * @return string
+     */
+    protected function typeComputed(Fluent $column)
+    {
+        return 'as ('.$column->expression.')';
+    }
+
+    /**
+     * Create the column definition for a vector type.
+     *
+     * @param  \Illuminate\Support\Fluent  $column
+     * @return string
+     */
+    protected function typeVector(Fluent $column)
+    {
+        return 'vector';
     }
 }
