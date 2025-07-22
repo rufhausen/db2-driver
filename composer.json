@@ -1,7 +1,7 @@
 {
     "name": "rufhausen/db2-driver",
     "description": "DB2 for IBM iSeries drop-in Laravel driver",
-    "keywords": [s",
+    "keywords": [
         "laravel",
         "db2-driver"
     ],
