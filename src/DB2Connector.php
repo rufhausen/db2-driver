@@ -19,7 +19,7 @@ class DB2Connector extends Connector implements ConnectorInterface
             $schema = $config['schema'];
 
             $connection->prepare('set schema '.$schema)
-                       ->execute();
+                ->execute();
         }
 
         return $connection;
