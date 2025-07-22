@@ -79,8 +79,7 @@ class DB2Connection extends Connection
     protected function getDefaultQueryGrammar()
     {
         $defaultGrammar = version_compare(app()->version(), '12.0.0', '<')
-            ? new DB2QueryGrammar()
-            : new DB2QueryGrammarWithConnection($this);
+            new DB2QueryGrammar($this);
 
         // If a date format was specified in constructor
         if (array_key_exists('date_format', $this->config)) {
